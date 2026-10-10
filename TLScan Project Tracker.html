@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TLScan Project Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0F1419;
+    --panel: #161D26;
+    --panel-border: #263140;
+    --text: #E6EDF3;
+    --muted: #8B98A5;
+    --accent: #3FD6C2;
+    --accent-dim: #1F4B46;
+    --done: #3FD6C2;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #F7F9FA;
+      --panel: #FFFFFF;
+      --panel-border: #DCE3E8;
+      --text: #15202B;
+      --muted: #5B6B78;
+      --accent: #0E9488;
+      --accent-dim: #D7F3EF;
+    }
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+  header h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header p { color: var(--muted); margin: 0 0 24px; font-size: 0.92rem; max-width: 64ch; }
+
+  .progress-shell {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 28px;
+  }
+  .progress-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .progress-row span:first-child { font-weight: 600; }
+  .progress-row span:last-child { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; }
+  .bar { height: 8px; border-radius: 4px; background: var(--accent-dim); overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; }
+
+  .phase {
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .phase-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .phase-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .phase-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 0.98rem; }
+  .phase-count { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: var(--muted); font-weight: 400; }
+  .phase-badge {
+    width: 20px; height: 20px; border-radius: 50%; flex: none;
+    border: 2px solid var(--panel-border);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .phase-badge.complete { background: var(--accent); border-color: var(--accent); }
+  .phase-badge.complete::after { content: "✓"; color: var(--bg); font-size: 0.7rem; font-weight: 700; }
+  .chevron { color: var(--muted); font-size: 0.75rem; transition: transform 0.2s ease; }
+  .phase.open .chevron { transform: rotate(90deg); }
+
+  .phase-body { display: none; padding: 0 18px 16px; }
+  .phase.open .phase-body { display: block; }
+
+  .step { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--panel-border); align-items: flex-start; }
+  .step:first-child { border-top: none; }
+  .step input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+  .step label { font-size: 0.92rem; cursor: pointer; }
+  .step.checked label { color: var(--muted); text-decoration: line-through; }
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--accent-dim);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  .note { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+  .reset { background: none; border: 1px solid var(--panel-border); color: var(--muted); font-size: 0.78rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-top: 24px; font-family: inherit; }
+  .reset:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>TLScan Project Tracker</h1>
+    <p>Pipeline progress for the Random Forest / XGBoost vs. JA3-SSLBL thesis. Check items off as you go — your progress is saved on this device.</p>
+  </header>
+
+  <div class="progress-shell">
+    <div class="progress-row"><span>Overall progress</span><span id="overall-count">0 / 0</span></div>
+    <div class="bar"><div class="bar-fill" id="overall-bar" style="width:0%"></div></div>
+  </div>
+
+  <div id="phases"></div>
+
+  <button class="reset" id="reset-btn">Reset all progress</button>
+</div>
+
+<script>
+const DATA = [
+  {
+    id: "env",
+    title: "Environment Setup — create the VM",
+    open: true,
+    steps: [
+      ["env-1", "Download VirtualBox (latest 7.x) for your host OS from virtualbox.org"],
+      ["env-3", "Download the Ubuntu 22.04 LTS \"Jammy Jellyfish\" desktop ISO from ubuntu.com/download/desktop"],
+      ["env-4", "In VirtualBox: New VM → name it <code>TLScan-Ubuntu</code> → Type: Linux → Version: Ubuntu (64-bit)"],
+      ["env-5", "Allocate RAM: with 8GB physical RAM, give the VM 4096 MB (leaves ~3–4GB for Windows). If you can upgrade to 16GB+ later, bump this to 8192–12288 MB."],
+      ["env-6", "Allocate CPU: 4 cores (matches the paper's 4-core minimum). Enable VT-x/AMD-V passthrough if offered."],
+      ["env-7", "Create a virtual hard disk: VDI, dynamically allocated, 80 GB. (Paper estimates ~50 GB needed; 80 GB gives buffer — you have 300+ GB free so this is easy.)"],
+      ["env-8", "Attach the Ubuntu ISO to the VM's optical drive and boot it"],
+      ["env-9", "Run the installer: Normal installation, download updates during install, \"Erase disk and install Ubuntu\" (safe — this is the VM's virtual disk only, not your host)"],
+      ["env-10", "After first boot: <code>sudo apt update &amp;&amp; sudo apt upgrade -y</code>"],
+      ["env-11", "(Optional, convenience only — not required by the paper) Install VirtualBox Guest Additions for better performance and clipboard/display integration"],
+      ["env-12", "Take a snapshot now, named \"Clean install\" — your rollback point before any project tooling goes in"],
+      ["env-13", "Install core tools: <code>sudo apt install wireshark tshark python3-pip python3-venv git -y</code>"],
+      ["env-14", "Allow packet capture as non-root: <code>sudo usermod -aG wireshark $USER</code>, then log out/in"],
+      ["env-15", "Create the project's Python environment: <code>python3 -m venv ~/tlscan-env</code>, then <code>source ~/tlscan-env/bin/activate</code>"],
+      ["env-16", "Install libraries, pinned to the paper's Implementation Stack: <code>pip install scikit-learn xgboost \"pandas>=2.0\" \"numpy>=1.24\" \"shap>=0.44\" \"statsmodels>=0.14\" ja3</code>"],
+      ["env-17", "Verify: <code>python3 --version</code> (should be 3.10+), <code>tshark --version</code>, and a quick <code>python3 -c \"import sklearn, xgboost, shap\"</code>"],
+      ["env-18", "Take a second snapshot, named \"Tools installed\" — your known-good baseline before data work starts"]
+    ]
+  },
+  {
+    id: "acq",
+    title: "Data Acquisition",
+    steps: [
+      ["acq-1", "Register/access the ISCX VPN-nonVPN dataset at unb.ca/cic/datasets/vpn.html"],
+      ["acq-2", "Download non-VPN category PCAPs toward the ≥2,500 flow target (benign, primary)"],
+      ["acq-3", "Download targeted PCAPs from the MTA repository toward ≥1,500 flows (malicious, primary)"],
+      ["acq-4", "Download targeted PCAPs from IoT-23 (Zenodo) toward ≥1,000 flows (malicious, supplemental)"],
+      ["acq-5", "Capture self-collected Chrome 110+ browsing sessions via Wireshark toward ≥500 flows (benign, supplemental)"]
+    ]
+  },
+  {
+    id: "parse",
+    title: "Packet Parsing & Feature Extraction",
+    steps: [
+      ["parse-1", "Parse all PCAPs with tshark; extract TLS ClientHello fields"],
+      ["parse-1b", "On 8GB RAM: parse PCAPs in smaller batches per source rather than all at once, and close other Windows apps while tshark runs on large files"],
+      ["parse-2", "Apply tshark display filter to remove sessions below TLS 1.2"]
+    ]
+  },
+  {
+    id: "ja3",
+    title: "JA3 Hash Computation & Deduplication",
+    steps: [
+      ["ja3-1", "Compute JA3 hash per flow via the ja3 library (Althouse et al. spec)"],
+      ["ja3-2", "Run the dedup script keyed on JA3 hash + SNI + five-tuple, before merging sources"]
+    ]
+  },
+  {
+    id: "evasive",
+    title: "Evasive-Subset Isolation",
+    steps: [
+      ["evasive-1", "Pull a fixed abuse.ch SSLBL snapshot; record its date/version"],
+      ["evasive-2", "Flag malicious flows whose JA3 hash is absent from the snapshot → evasive-malware subset"]
+    ]
+  },
+  {
+    id: "feat",
+    title: "Feature Matrix Construction",
+    steps: [
+      ["feat-1", "Build the matrix from the six ClientHello field categories (cipher suites, extensions, curves, version, SNI, cert metadata)"],
+      ["feat-2", "Confirm the JA3 hash itself is excluded from the feature set"]
+    ]
+  },
+  {
+    id: "split",
+    title: "Train-Test Split",
+    steps: [
+      ["split-1", "80/20 stratified split, preserving malicious:benign ratio"],
+      ["split-2", "Confirm the evasive subset is excluded from training and fully present in test"]
+    ]
+  },
+  {
+    id: "train",
+    title: "Model Training",
+    steps: [
+      ["train-1", "Train Random Forest with scikit-learn defaults + class_weight='balanced'"],
+      ["train-2", "Train XGBoost with library defaults + scale_pos_weight set to the benign:malicious ratio"]
+    ]
+  },
+  {
+    id: "learncurve",
+    title: "Learning Curve Analysis",
+    steps: [
+      ["lc-1", "Train both classifiers on 10%→100% subsets of the training data; record training vs. cross-validation F1 at each increment"],
+      ["lc-2", "Confirm the validation curve plateaus before final evaluation; if not, expand the corpus from existing sources"]
+    ]
+  },
+  {
+    id: "eval",
+    title: "Performance Evaluation",
+    steps: [
+      ["eval-1", "Compute Precision, Recall, F1, ROC-AUC, PR-AUC for all three approaches on the test set"],
+      ["eval-2", "Repeat the metrics specifically on the evasive-malware subset"]
+    ]
+  },
+  {
+    id: "stats",
+    title: "Statistical Significance Testing",
+    steps: [
+      ["stats-1", "Run McNemar's test for all 3 pairwise comparisons"],
+      ["stats-2", "Apply Bonferroni correction (α' ≈ 0.0167)"]
+    ]
+  },
+  {
+    id: "shap",
+    title: "SHAP Feature Attribution",
+    steps: [
+      ["shap-1", "Run TreeSHAP on both trained classifiers across the full evaluation set"],
+      ["shap-2", "Check TLS-version SHAP values specifically for temporal-artifact bias"]
+    ]
+  }
+];
+
+const STORAGE_KEY = "tlscan_tracker_progress_v1";
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+function saveState(state) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+let state = loadState();
+
+function render() {
+  const container = document.getElementById("phases");
+  container.innerHTML = "";
+  let totalDone = 0, totalSteps = 0;
+
+  DATA.forEach(phase => {
+    const doneCount = phase.steps.filter(([id]) => state[id]).length;
+    totalDone += doneCount;
+    totalSteps += phase.steps.length;
+    const complete = doneCount === phase.steps.length;
+
+    const phaseEl = document.createElement("div");
+    phaseEl.className = "phase" + (phase.open ? " open" : "");
+
+    const head = document.createElement("div");
+    head.className = "phase-head";
+    head.tabIndex = 0;
+    head.setAttribute("role", "button");
+    head.innerHTML = `
+      <div class="phase-title">
+        <span class="phase-badge${complete ? ' complete' : ''}"></span>
+        <span>${phase.title}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="phase-count">${doneCount}/${phase.steps.length}</span>
+        <span class="chevron">▶</span>
+      </div>`;
+    const toggle = () => { phaseEl.classList.toggle("open"); };
+    head.addEventListener("click", toggle);
+    head.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+
+    const body = document.createElement("div");
+    body.className = "phase-body";
+    phase.steps.forEach(([id, text]) => {
+      const row = document.createElement("div");
+      row.className = "step" + (state[id] ? " checked" : "");
+      row.innerHTML = `<input type="checkbox" id="${id}" ${state[id] ? "checked" : ""}><label for="${id}">${text}</label>`;
+      const cb = row.querySelector("input");
+      cb.addEventListener("change", () => {
+        state[id] = cb.checked;
+        saveState(state);
+        render();
+      });
+      body.appendChild(row);
+    });
+
+    phaseEl.appendChild(head);
+    phaseEl.appendChild(body);
+    container.appendChild(phaseEl);
+  });
+
+  document.getElementById("overall-count").textContent = `${totalDone} / ${totalSteps}`;
+  document.getElementById("overall-bar").style.width = totalSteps ? `${(totalDone/totalSteps)*100}%` : "0%";
+}
+
+document.getElementById("reset-btn").addEventListener("click", () => {
+  if (confirm("Reset all checked progress?")) {
+    state = {};
+    saveState(state);
+    render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
